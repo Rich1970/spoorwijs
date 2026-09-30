@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tubewijs</title>
+<meta name="theme-color" content="#0f0f0f">
+<style>
+  :root {
+    --bg: #0f0f0f; --panel: #1c1c1c; --panel2: #272727; --text: #f1f1f1; --muted: #aaa;
+    --red: #ff0033; --green: #2bb673; --blue: #3ea6ff; --amber: #f5a524; --line: #333;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.4 Roboto, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+  input, textarea, select { font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; }
+  a { color: var(--blue); }
+
+  /* Topbar — YouTube-achtig */
+  header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px;
+    padding: 8px 16px; background: var(--bg); border-bottom: 1px solid #222; }
+  .logo { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 19px; letter-spacing: -.5px; white-space: nowrap; }
+  .logo i { display: inline-grid; place-items: center; width: 30px; height: 21px; background: var(--red);
+    border-radius: 6px; font-style: normal; font-size: 11px; }
+  .searchbar { flex: 1; display: flex; max-width: 640px; margin: 0 auto; }
+  .searchbar input { border-radius: 40px 0 0 40px; background: #121212; }
+  .searchbar button { padding: 0 18px; background: var(--panel2); border: 1px solid var(--line);
+    border-left: 0; border-radius: 0 40px 40px 0; }
+  .aibtn { background: linear-gradient(90deg,#7b5cff,#ff3d77) !important; border: 0 !important; font-weight: 600; white-space: nowrap; }
+
+  nav.tabs { display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto; border-bottom: 1px solid #222; }
+  nav.tabs button { padding: 7px 14px; border-radius: 8px; background: var(--panel2); white-space: nowrap; }
+  nav.tabs button.active { background: var(--text); color: #000; }
+  nav.tabs .count { opacity: .7; font-size: 12px; margin-left: 4px; }
+
+  main { padding: 16px; max-width: 1400px; margin: 0 auto; }
+  .hidden { display: none !important; }
+  .muted { color: var(--muted); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .btn { padding: 9px 16px; border-radius: 20px; background: var(--panel2); }
+  .btn.primary { background: var(--text); color: #000; font-weight: 600; }
+  .btn.small { padding: 5px 10px; font-size: 13px; }
+  .card-panel { background: var(--panel); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+  h2 { font-size: 20px; margin: 4px 0 12px; }
+  h3 { font-size: 16px; margin: 16px 0 8px; }
+
+  /* Grid — zoals de YouTube-homepage */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px 16px; }
+  .vid { position: relative; }
+  .thumb { position: relative; aspect-ratio: 16/9; border-radius: var(--radius); overflow: hidden; background: #222; cursor: pointer; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .dur { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,.8); font-size: 12px; font-weight: 600; padding: 1px 5px; border-radius: 4px; }
+  .meta { display: flex; gap: 10px; margin-top: 10px; }
+  .meta .t { font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .meta .s { color: var(--muted); font-size: 13px; }
+  .vid .actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .score { display: inline-block; font-size: 12px; padding: 1px 7px; border-radius: 10px; background: #2d2350; color: #c9b8ff; }
+
+  /* Swipe-stapel */
+  .deck-wrap { display: grid; place-items: center; gap: 16px; }
+  .deck { position: relative; width: min(520px, 100%); height: 540px; }
+  .swipecard { position: absolute; inset: 0; background: var(--panel); border-radius: 18px; overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5); touch-action: none; user-select: none; transition: transform .25s ease;
+    display: flex; flex-direction: column; }
+  .swipecard.dragging { transition: none; }
+  .swipecard .thumb { border-radius: 0; cursor: grab; }
+  .swipecard .body { padding: 14px 16px; overflow: auto; flex: 1; }
+  .swipecard .title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .swipecard .desc { color: var(--muted); font-size: 13px; margin-top: 8px; white-space: pre-line; max-height: 110px; overflow: hidden; }
+  .swipecard .why { margin-top: 8px; font-size: 13px; color: #c9b8ff; }
+  .stamp { position: absolute; top: 20px; padding: 6px 14px; border: 4px solid; border-radius: 10px; font-weight: 800;
+    font-size: 24px; opacity: 0; transform: rotate(-12deg); pointer-events: none; z-index: 2; background: rgba(0,0,0,.4); }
+  .stamp.left { right: 20px; color: var(--red); border-color: var(--red); }
+  .stamp.right { left: 20px; color: var(--green); border-color: var(--green); transform: rotate(12deg); }
+  .stamp.up { left: 50%; top: 40%; transform: translateX(-50%); color: var(--blue); border-color: var(--blue); }
+  .swipe-buttons { display: flex; gap: 18px; align-items: center; }
+  .round { width: 64px; height: 64px; border-radius: 50%; background: var(--panel); font-size: 26px; display: grid; place-items: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+  .round.small { width: 48px; height: 48px; font-size: 19px; }
+  .round.l { color: var(--red); } .round.r { color: var(--green); } .round.u { color: var(--blue); }
+  .legend { display: grid; grid-template-columns: repeat(3, auto); gap: 4px 18px; font-size: 13px; color: var(--muted); text-align: center; }
+
+  .banner { padding: 12px 14px; border-radius: 10px; background: #2a2210; color: #ffd98a; margin-bottom: 16px; }
+  .banner.info { background: #10202a; color: #9fd6ff; }
+  .progress { height: 4px; background: var(--panel2); border-radius: 4px; overflow: hidden; width: min(520px,100%); }
+  .progress > div { height: 100%; background: var(--red); width: 0; transition: width .3s; }
+
+  /* Speler */
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 50; display: grid; place-items: center; padding: 16px; }
+  .player { width: min(1100px, 100%); }
+  .player .frame { aspect-ratio: 16/9; background: #000; border-radius: var(--radius); overflow: hidden; }
+  .player iframe { width: 100%; height: 100%; border: 0; }
+  .player .bar { display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: #000;
+    padding: 10px 16px; border-radius: 8px; z-index: 60; display: flex; gap: 14px; align-items: center; font-weight: 500; }
+  .toast button { color: #065fd4; font-weight: 700; }
+
+  .list-row { display: flex; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid #222; }
+  .list-row img { width: 120px; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px; flex: none; }
+  .list-row .grow { flex: 1; min-width: 0; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { padding: 5px 12px; border-radius: 8px; background: var(--panel2); font-size: 13px; }
+  .chip.on { background: var(--text); color: #000; }
+  label.field { display: block; margin-bottom: 12px; }
+  label.field span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+
+  @media (max-width: 640px) {
+    header { flex-wrap: wrap; padding: 8px 12px; }
+    .searchbar { order: 3; flex-basis: 100%; }
+    main { padding: 12px; }
+    .deck { height: 500px; }
+    .list-row img { width: 96px; }
+    .toast { bottom: auto; top: 12px; width: calc(100% - 32px); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><i>▶</i>Tubewijs</div>
+  <form class="searchbar" id="searchForm">
+    <input id="q" placeholder="Wat wil je leren of zien? bv. 'Claude Code slim gebruiken met een €20 abonnement'" autocomplete="off">
+    <button type="submit" class="aibtn" title="Slim zoeken en swipen">✨ Zoek</button>
+  </form>
+  <button class="btn small" id="settingsBtn" title="Instellingen">⚙️</button>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="home" class="active">🏠 Ontdekken</button>
+  <button data-tab="swipe">🃏 Swipen <span class="count" id="cDeck"></span></button>
+  <button data-tab="watch">▶️ Kijklijst <span class="count" id="cWatch"></span></button>
+  <button data-tab="history">🕘 Gezien &amp; verborgen</button>
+</nav>
+
+<main>
+  <div id="setupBanner" class="banner hidden">
+    Je hebt nog geen YouTube API-sleutel ingesteld. <button class="btn small" onclick="openTab('settings')">Instellen</button>
+  </div>
+
+  <!-- ONTDEKKEN: YouTube-achtige feed, maar zonder wat je al zag of wegswipte -->
+  <section id="tab-home">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <div class="chips" id="homeChips"></div>
+      <button class="btn small" id="refreshHome">↻ Verversen</button>
+    </div>
+    <div class="grid" id="homeGrid"></div>
+    <p class="muted" id="homeEmpty"></p>
+  </section>
+
+  <!-- SWIPEN -->
+  <section id="tab-swipe" class="hidden">
+    <div class="deck-wrap">
+      <div id="deckInfo" class="muted" style="text-align:center"></div>
+      <div class="progress"><div id="deckProgress"></div></div>
+      <div class="deck" id="deck"></div>
+      <div class="swipe-buttons">
+        <button class="round small" id="undoBtn" title="Ongedaan maken (Backspace)">↶</button>
+        <button class="round l" data-act="reject" title="Niet interessant (←)">✕</button>
+        <button class="round u" data-act="keep" title="Bewaren om te kijken (↑)">★</button>
+        <button class="round r" data-act="seen" title="Al gezien (→)">✓</button>
+        <button class="round small" id="previewBtn" title="Even voorvertonen (spatie)">▶</button>
+      </div>
+      <div class="legend">
+        <div>← links<br><b style="color:var(--red)">niet interessant</b></div>
+        <div>↑ omhoog<br><b style="color:var(--blue)">bewaren / kijken</b></div>
+        <div>→ rechts<br><b style="color:var(--green)">al gezien</b></div>
+      </div>
+      <div class="row" id="deckDone" style="justify-content:center"></div>
+    </div>
+  </section>
+
+  <!-- KIJKLIJST -->
+  <section id="tab-watch" class="hidden">
+    <div class="row" style="justify-content:space-between">
+      <h2>Kijklijst</h2>
+      <div class="row">
+        <button class="btn small" id="playAll">▶ Alles afspelen</button>
+      </div>
+    </div>
+    <p class="muted">Klaar met kijken? Klik op <b>✓ Gezien</b>, dan komt de video nooit meer terug in je zoekresultaten.</p>
+    <div class="grid" id="watchGrid"></div>
+  </section>
+
+  <!-- GEZIEN / VERBORGEN -->
+  <section id="tab-history" class="hidden">
+    <div class="chips" style="margin-bottom:12px">
+      <button class="chip on" data-hist="seen">✓ Gezien <span id="cSeen"></span></button>
+      <button class="chip" data-hist="rejected">✕ Niet interessant <span id="cRej"></span></button>
+      <button class="chip" data-hist="channels">🚫 Geblokkeerde kanalen <span id="cChan"></span></button>
+    </div>
+    <input id="histFilter" placeholder="Filter op titel of kanaal…" style="margin-bottom:8px">
+    <div id="histList"></div>
+  </section>
+
+  <!-- INSTELLINGEN -->
+  <section id="tab-settings" class="hidden">
+    <div class="card-panel">
+      <h2>YouTube-koppeling (gratis)</h2>
+      <label class="field"><span>YouTube Data API v3-sleutel — verplicht</span>
+        <input id="ytKey" placeholder="AIza…" autocomplete="off"></label>
+      <p class="muted" style="font-size:13px">
+        Gratis aan te maken in 3 minuten: <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">Google Cloud Console</a>
+        → project aanmaken → "YouTube Data API v3" inschakelen → Credentials → API key.
+        Je krijgt 10.000 punten per dag gratis; één zoekopdracht kost 100 punten.
+        Vandaag verbruikt: <b id="quotaUsed">0</b> / 10.000.
+      </p>
+    </div>
+    <div class="card-panel">
+      <h2>AI-hulp (optioneel)</h2>
+      <label class="field"><span>Anthropic API-sleutel — laat leeg om zonder AI te zoeken</span>
+        <input id="aiKey" placeholder="sk-ant-…" autocomplete="off"></label>
+      <p class="muted" style="font-size:13px">
+        Met AI wordt je vraag vertaald naar meerdere slimme zoekopdrachten (NL + EN) en krijgt elke video een relevantiescore,
+        zodat onzin eruit valt. Gebruikt Claude Haiku: ongeveer €0,002 per zoekvraag, dus je €20 abonnement raak je er niet mee aan
+        (de API wordt apart en per gebruik afgerekend via <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>).
+      </p>
+      <label class="field"><span>Aantal zoekopdrachten per vraag (meer = breder, kost 100 YouTube-punten per stuk)</span>
+        <select id="nQueries"><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label>
+      <label class="field"><span>Minimale AI-relevantiescore (0–10)</span>
+        <select id="minScore"><option>0</option><option>3</option><option selected>5</option><option>6</option><option>7</option></select></label>
+    </div>
+    <div class="card-panel">
+      <h2>Filters</h2>
+      <label class="field"><span>Taal van resultaten</span>
+        <select id="lang"><option value="">Alles</option><option value="nl">Nederlands</option><option value="en">Engels</option></select></label>
+      <label class="field"><span>Regio voor "Ontdekken"</span>
+        <select id="region"><option>NL</option><option>BE</option><option>US</option><option>GB</option><option>DE</option></select></label>
+      <label class="field"><span>Niet ouder dan</span>
+        <select id="maxAge"><option value="">Maakt niet uit</option><option value="30">1 maand</option><option value="90">3 maanden</option><option value="365">1 jaar</option><option value="730">2 jaar</option></select></label>
+      <label class="field row" style="gap:8px"><input type="checkbox" id="noShorts" style="width:auto" checked> Shorts (&lt; 60 s) overslaan</label>
+    </div>
+    <div class="card-panel">
+      <h2>Je YouTube-kijkgeschiedenis importeren</h2>
+      <p class="muted" style="font-size:13px">
+        Zodat Tubewijs meteen weet wat je al gezien hebt. Download via <a href="https://takeout.google.com" target="_blank" rel="noopener">Google Takeout</a>
+        alleen "YouTube en YouTube Music" → geschiedenis, in <b>JSON</b>-formaat. Kies daarna hier het bestand <code>watch-history.json</code>.
+      </p>
+      <input type="file" id="takeout" accept=".json,application/json">
+    </div>
+    <div class="card-panel">
+      <h2>Back-up</h2>
+      <p class="muted" style="font-size:13px">Alles wordt alleen in deze browser bewaard. Exporteer om over te zetten naar je telefoon of een andere computer.</p>
+      <div class="row">
+        <button class="btn" id="exportBtn">⬇ Exporteren</button>
+        <label class="btn">⬆ Importeren<input type="file" id="importFile" accept=".json" class="hidden"></label>
+        <button class="btn" id="resetBtn" style="color:var(--red)">Alles wissen</button>
+      </div>
+    </div>
+    <button class="btn primary" id="saveSettings">Opslaan</button>
+  </section>
+</main>
+
+<div class="modal hidden" id="playerModal">
+  <div class="player">
+    <div class="frame"><iframe id="playerFrame" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
+    <div class="bar">
+      <div style="min-width:0;flex:1"><div id="playerTitle" style="font-weight:700"></div><div id="playerSub" class="muted" style="font-size:13px"></div></div>
+      <div class="row" id="playerActions"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast hidden" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   Opslag (alles lokaal in de browser)
+   ============================================================ */
+const STORE_KEY = 'tubewijs:v1';
+const DEFAULT_STATE = {
+  settings: { ytKey: '', aiKey: '', nQueries: 3, minScore: 5, lang: '', region: 'NL', maxAge: '', noShorts: true },
+  seen: {},        // id -> {id,title,channel,thumb,t}
+  rejected: {},    // id -> idem
+  blockedChannels: {}, // channelId -> {name,t}
+  watch: [],       // [video]
+  deck: [], deckQuery: '', deckTotal: 0,
+  searches: [],    // recente zoekvragen = je interesses
+  quota: { day: '', used: 0 },
+};
+let S = load();
+function load() {
+  try { return deepMerge(structuredClone(DEFAULT_STATE), JSON.parse(localStorage.getItem(STORE_KEY) || '{}')); }
+  catch { return structuredClone(DEFAULT_STATE); }
+}
+function deepMerge(a, b) {
+  for (const k in b) a[k] = (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a[k] && typeof a[k] === 'object')
+    ? deepMerge(a[k], b[k]) : b[k];
+  return a;
+}
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); }
+  catch (e) { toast('Opslaan mislukt: browseropslag vol?'); }
+  renderCounts();
+}
+const slim = v => ({ id: v.id, title: v.title, channel: v.channel, channelId: v.channelId, thumb: v.thumb, t: Date.now() });
+const isHidden = v => S.seen[v.id] || S.rejected[v.id] || S.blockedChannels[v.channelId] || S.watch.some(w => w.id === v.id);
+
+/* ============================================================
+   YouTube Data API
+   ============================================================ */
+const YT = 'https://www.googleapis.com/youtube/v3/';
+function addQuota(units) {
+  const day = new Date().toISOString().slice(0, 10);
+  if (S.quota.day !== day) S.quota = { day, used: 0 };
+  S.quota.used += units;
+}
+async function yt(path, params, cost) {
+  if (!S.settings.ytKey) throw new Error('Stel eerst je YouTube API-sleutel in (⚙️).');
+  const url = new URL(YT + path);
+  Object.entries({ ...params, key: S.settings.ytKey }).forEach(([k, v]) => v !== '' && v != null && url.searchParams.set(k, v));
+  const res = await fetch(url);
+  addQuota(cost);
+  const data = await res.json();
+  if (data.error) {
+    const reason = data.error.errors?.[0]?.reason;
+    if (reason === 'quotaExceeded') throw new Error('Je gratis YouTube-dagquotum is op. Morgen (9:00 NL-tijd) weer beschikbaar.');
+    throw new Error('YouTube: ' + data.error.message);
+  }
+  return data;
+}
+async function ytSearch(q, pageToken) {
+  const { lang, maxAge } = S.settings;
+  const publishedAfter = maxAge ? new Date(Date.now() - maxAge * 864e5).toISOString() : '';
+  const d = await yt('search', {
+    part: 'snippet', type: 'video', maxResults: 25, q, pageToken,
+    relevanceLanguage: lang, publishedAfter, safeSearch: 'none',
+  }, 100);
+  return { ids: d.items.map(i => i.id.videoId), next: d.nextPageToken };
+}
+async function ytDetails(ids) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const d = await yt('videos', { part: 'snippet,contentDetails,statistics', id: ids.slice(i, i + 50).join(',') }, 1);
+    out.push(...d.items.map(toVideo));
+  }
+  return out;
+}
+async function ytPopular(categoryId) {
+  const d = await yt('videos', { part: 'snippet,contentDetails,statistics', chart: 'mostPopular',
+    regionCode: S.settings.region, maxResults: 50, videoCategoryId: categoryId || '' }, 1);
+  return d.items.map(toVideo);
+}
+function toVideo(i) {
+  const sn = i.snippet, th = sn.thumbnails || {};
+  return {
+    id: i.id, title: decode(sn.title), channel: sn.channelTitle, channelId: sn.channelId,
+    desc: sn.description || '', published: sn.publishedAt,
+    thumb: (th.maxres || th.high || th.medium || th.default || {}).url,
+    seconds: isoDur(i.contentDetails?.duration), views: +(i.statistics?.viewCount || 0),
+  };
+}
+function isoDur(s) {
+  const m = /P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(s || '') || [];
+  return (+m[1] || 0) * 86400 + (+m[2] || 0) * 3600 + (+m[3] || 0) * 60 + (+m[4] || 0);
+}
+const decode = s => { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
+
+/* ============================================================
+   AI (Claude Haiku) — optioneel
+   ============================================================ */
+async function claude(prompt, maxTokens) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': S.settings.aiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }] }),
+  });
+  const d = await res.json();
+  if (d.error) throw new Error('AI: ' + d.error.message);
+  const text = d.content.map(c => c.text || '').join('');
+  const json = text.slice(text.search(/[\[{]/), Math.max(text.lastIndexOf('}'), text.lastIndexOf(']')) + 1);
+  return JSON.parse(json);
+}
+async function aiQueries(question, n) {
+  const r = await claude(
+`Iemand zoekt YouTube-video's met deze vraag:
+"${question}"
+
+Bedenk precies ${n} verschillende YouTube-zoekopdrachten die samen de beste, meest praktische video's hierover vinden.
+- Kort (2-7 woorden), zoals een mens op YouTube typt.
+- Mix Nederlands en Engels (Engels heeft meestal veel meer aanbod), tenzij de vraag duidelijk om één taal vraagt.
+- Verschillende invalshoeken (bv. uitleg, tips, workflow, vergelijking) zodat de resultaten niet overlappen.
+Antwoord alleen met JSON: {"queries": ["...", "..."]}`, 300);
+  return (r.queries || []).slice(0, n);
+}
+async function aiRank(question, videos) {
+  const list = videos.map(v => ({ id: v.id, title: v.title, channel: v.channel,
+    min: Math.round(v.seconds / 60), date: (v.published || '').slice(0, 10), desc: v.desc.slice(0, 220).replace(/\s+/g, ' ') }));
+  const r = await claude(
+`Vraag van de gebruiker: "${question}"
+
+Beoordeel per YouTube-video hoe goed die de vraag beantwoordt (0 = irrelevant of clickbait, 10 = precies wat gezocht wordt).
+Let op: actualiteit is belangrijk bij snel veranderende onderwerpen (AI-tools, software, prijzen).
+Geef per video een heel korte Nederlandse reden (max 12 woorden).
+Video's:
+${JSON.stringify(list)}
+
+Antwoord alleen met JSON: [{"id":"...","score":7,"why":"..."}]`, 4000);
+  const map = Object.fromEntries(r.map(x => [x.id, x]));
+  return videos.map(v => ({ ...v, score: map[v.id]?.score ?? 5, why: map[v.id]?.why || '' }));
+}
+
+/* ============================================================
+   Zoeken → swipe-stapel
+   ============================================================ */
+let searchState = null; // {question, queries:[{q,next}]}
+async function runSearch(question, more = false) {
+  question = question.trim();
+  if (!question) return;
+  openTab('swipe');
+  setDeckInfo(more ? 'Meer video\'s zoeken…' : (S.settings.aiKey ? '✨ AI bedenkt slimme zoekopdrachten…' : 'Zoeken…'));
+  try {
+    if (!more) {
+      let queries = [question];
+      if (S.settings.aiKey) {
+        try { queries = await aiQueries(question, +S.settings.nQueries); }
+        catch (e) { toast(e.message + ' — ik zoek zonder AI.'); }
+      }
+      searchState = { question, queries: queries.map(q => ({ q, next: undefined })) };
+      S.searches = [question, ...S.searches.filter(s => s !== question)].slice(0, 12);
+    }
+    setDeckInfo('Video\'s ophalen: ' + searchState.queries.map(x => '“' + x.q + '”').join(', '));
+    const ids = new Set();
+    for (const sq of searchState.queries) {
+      if (sq.next === null) continue;
+      const r = await ytSearch(sq.q, sq.next);
+      sq.next = r.next || null;
+      r.ids.forEach(id => ids.add(id));
+    }
+    const known = new Set(more ? S.deck.map(v => v.id) : []);
+    let vids = await ytDetails([...ids].filter(id => !known.has(id)));
+    const before = vids.length;
+    vids = vids.filter(v => !isHidden(v) && !(S.settings.noShorts && v.seconds && v.seconds < 61));
+    const skipped = before - vids.length;
+    if (S.settings.aiKey && vids.length) {
+      setDeckInfo(`✨ AI beoordeelt ${vids.length} video's op relevantie…`);
+      try {
+        vids = await aiRank(question, vids);
+        vids = vids.filter(v => v.score >= +S.settings.minScore).sort((a, b) => b.score - a.score);
+      } catch (e) { toast(e.message); }
+    }
+    S.deck = more ? [...S.deck, ...vids] : vids;
+    S.deckQuery = question;
+    S.deckTotal = (more ? S.deckTotal : 0) + vids.length;
+    save();
+    renderDeck();
+    if (skipped) toast(`${skipped} ${skipped === 1 ? 'video' : "video's"} overgeslagen die je al zag, wegswipte of Shorts waren.`);
+  } catch (e) {
+    setDeckInfo('');
+    toast(e.message);
+    renderDeck();
+  }
+}
+function setDeckInfo(txt) { document.getElementById('deckInfo').textContent = txt; }
+
+/* ============================================================
+   Swipe-stapel tekenen + gebaren
+   ============================================================ */
+const undoStack = []; // voor ongedaan maken: {video, act}
+function renderDeck() {
+  const deck = document.getElementById('deck');
+  deck.innerHTML = '';
+  const done = document.getElementById('deckDone');
+  done.innerHTML = '';
+  const n = S.deck.length;
+  setDeckInfo(S.deckQuery ? `“${S.deckQuery}” — nog ${n} te beoordelen` : 'Typ bovenin wat je zoekt en druk op ✨ Zoek.');
+  document.getElementById('deckProgress').style.width = S.deckTotal ? ((S.deckTotal - n) / S.deckTotal * 100) + '%' : '0';
+  if (!n) {
+    deck.innerHTML = `<div class="card-panel" style="position:absolute;inset:0;display:grid;place-items:center;text-align:center">
+      <div><div style="font-size:48px">🎉</div><h2>Stapel leeg</h2>
+      <p class="muted">${S.watch.length} video's staan in je kijklijst.</p></div></div>`;
+    if (S.deckQuery) done.innerHTML = `<button class="btn" onclick="runSearch(S.deckQuery, !!searchState)">🔎 Meer zoeken</button>`;
+    if (S.watch.length) done.innerHTML += `<button class="btn primary" onclick="openTab('watch')">▶ Naar kijklijst</button>`;
+    return;
+  }
+  // Toon de bovenste 2 kaarten (tweede ligt eronder)
+  S.deck.slice(0, 2).reverse().forEach((v, i, arr) => {
+    const el = document.createElement('div');
+    el.className = 'swipecard';
+    const top = i === arr.length - 1;
+    if (!top) el.style.transform = 'scale(.95) translateY(12px)';
+    el.innerHTML = `
+      <div class="stamp left">NIET INTERESSANT</div><div class="stamp right">AL GEZIEN</div><div class="stamp up">BEWAREN</div>
+      <div class="thumb"><img src="${v.thumb}" alt="" draggable="false"><span class="dur">${fmtDur(v.seconds)}</span></div>
+      <div class="body">
+        <div class="title">${esc(v.title)}</div>
+        <div class="muted" style="font-size:13px">${esc(v.channel)} · ${fmtViews(v.views)} · ${ago(v.published)}
+          ${v.score != null ? ` · <span class="score">AI ${v.score}/10</span>` : ''}</div>
+        ${v.why ? `<div class="why">✨ ${esc(v.why)}</div>` : ''}
+        <div class="desc">${esc(v.desc.slice(0, 400))}</div>
+        <div class="row" style="margin-top:10px"><button class="btn small" data-block="${v.channelId}">🚫 Kanaal nooit meer tonen</button></div>
+      </div>`;
+    deck.appendChild(el);
+    if (top) attachDrag(el, v);
+  });
+}
+function attachDrag(el, v) {
+  let sx, sy, dx = 0, dy = 0, active = false;
+  const stamps = { left: el.querySelector('.stamp.left'), right: el.querySelector('.stamp.right'), up: el.querySelector('.stamp.up') };
+  el.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
+    active = true; sx = e.clientX; sy = e.clientY; dx = dy = 0;
+    el.setPointerCapture(e.pointerId); el.classList.add('dragging');
+  });
+  el.addEventListener('pointermove', e => {
+    if (!active) return;
+    dx = e.clientX - sx; dy = e.clientY - sy;
+    el.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx / 18}deg)`;
+    stamps.left.style.opacity = Math.max(0, -dx / 120);
+    stamps.right.style.opacity = Math.max(0, dx / 120);
+    stamps.up.style.opacity = Math.abs(dx) < 80 ? Math.max(0, -dy / 120) : 0;
+  });
+  const end = () => {
+    if (!active) return;
+    active = false; el.classList.remove('dragging');
+    if (dx < -110) decide('reject');
+    else if (dx > 110) decide('seen');
+    else if (dy < -110 && Math.abs(dx) < 110) decide('keep');
+    else if (Math.abs(dx) < 6 && Math.abs(dy) < 6) openPlayer(v, 'deck');   // tik = voorvertonen
+    else { el.style.transform = ''; Object.values(stamps).forEach(s => s.style.opacity = 0); }
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  el.querySelector('[data-block]').onclick = () => blockChannel(v);
+}
+function decide(act) {
+  const v = S.deck[0];
+  if (!v) return;
+  const el = document.querySelector('.swipecard:last-child');
+  if (el) {
+    const fly = { reject: 'translate(-150%, 40px) rotate(-30deg)', seen: 'translate(150%, 40px) rotate(30deg)', keep: 'translate(0, -150%)' }[act];
+    el.style.transform = fly;
+    el.querySelector('.stamp.' + ({ reject: 'left', seen: 'right', keep: 'up' }[act])).style.opacity = 1;
+  }
+  S.deck.shift();
+  applyAct(v, act);
+  undoStack.push({ video: v, act });
+  save();
+  setTimeout(renderDeck, 220);
+}
+function applyAct(v, act) {
+  if (act === 'reject') S.rejected[v.id] = slim(v);
+  if (act === 'seen') S.seen[v.id] = slim(v);
+  if (act === 'keep' && !S.watch.some(w => w.id === v.id)) S.watch.push(v);
+}
+function undo() {
+  const h = undoStack.pop();
+  if (!h) return toast('Niets om ongedaan te maken');
+  delete S.rejected[h.video.id]; delete S.seen[h.video.id];
+  S.watch = S.watch.filter(w => w.id !== h.video.id);
+  S.deck.unshift(h.video);
+  save(); renderDeck();
+}
+function blockChannel(v) {
+  S.blockedChannels[v.channelId] = { name: v.channel, t: Date.now() };
+  const before = S.deck.length;
+  S.deck = S.deck.filter(x => x.channelId !== v.channelId);
+  save(); renderDeck(); renderHome(true);
+  toast(`Kanaal “${v.channel}” geblokkeerd (${before - S.deck.length} video's weg)`);
+}
+
+/* ============================================================
+   Ontdekken — de verrassing van een algoritme, zonder herhaling
+   ============================================================ */
+let homeFeed = [], homeChip = 'mix';
+const CATEGORIES = [['mix', '✨ Voor jou'], ['popular', '🔥 Trending'], ['28', 'Wetenschap & tech'], ['27', 'Onderwijs'], ['26', 'Howto & stijl'], ['25', 'Nieuws'], ['17', 'Sport'], ['10', 'Muziek']];
+async function loadHome() {
+  const grid = document.getElementById('homeGrid');
+  if (!S.settings.ytKey) { grid.innerHTML = ''; return; }
+  grid.innerHTML = '<p class="muted">Laden…</p>';
+  try {
+    let vids = [];
+    if (homeChip === 'mix') {
+      // Mix van je eigen interesses (recente zoekvragen) + een snufje trending
+      const interests = S.searches.slice(0, 3);
+      const ids = new Set();
+      for (const q of interests) (await ytSearch(q)).ids.forEach(id => ids.add(id));
+      vids = [...(await ytDetails([...ids])), ...(await ytPopular()).slice(0, 12)];
+      vids = shuffle(dedupe(vids));
+    } else {
+      vids = await ytPopular(homeChip === 'popular' ? '' : homeChip);
+    }
+    homeFeed = vids;
+    save();
+    renderHome();
+  } catch (e) {
+    grid.innerHTML = '';
+    document.getElementById('homeEmpty').textContent = e.message;
+  }
+}
+function renderHome(silent) {
+  const vids = homeFeed.filter(v => !isHidden(v) && !(S.settings.noShorts && v.seconds && v.seconds < 61));
+  const grid = document.getElementById('homeGrid');
+  grid.innerHTML = '';
+  vids.forEach(v => grid.appendChild(videoTile(v, [
+    ['★ Bewaren', () => { S.watch.push(v); save(); renderHome(); toast('In kijklijst gezet'); }],
+    ['✓ Gezien', () => { S.seen[v.id] = slim(v); save(); renderHome(); }],
+    ['✕', () => { S.rejected[v.id] = slim(v); save(); renderHome(); }],
+  ], () => openPlayer(v, 'home'))));
+  const empty = document.getElementById('homeEmpty');
+  if (!S.settings.ytKey) empty.innerHTML = 'Stel eerst je gratis YouTube API-sleutel in via ⚙️ om te beginnen.';
+  else if (homeChip === 'mix' && !S.searches.length) empty.textContent = 'Tip: zoek eerst iets met ✨ Zoek — je zoekvragen worden je interesses voor deze feed.';
+  else empty.textContent = vids.length ? '' : 'Alles in deze feed heb je al gezien of weggeswiped. Klik ↻ Verversen.';
+}
+function renderChips() {
+  const el = document.getElementById('homeChips');
+  el.innerHTML = '';
+  CATEGORIES.forEach(([id, label]) => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (id === homeChip ? ' on' : '');
+    b.textContent = label;
+    b.onclick = () => { homeChip = id; renderChips(); loadHome(); };
+    el.appendChild(b);
+  });
+}
+
+/* ============================================================
+   Kijklijst
+   ============================================================ */
+function renderWatch() {
+  const grid = document.getElementById('watchGrid');
+  grid.innerHTML = S.watch.length ? '' : '<p class="muted">Nog leeg. Swipe video\'s omhoog (★) om ze hier te bewaren.</p>';
+  S.watch.forEach(v => grid.appendChild(videoTile(v, [
+    ['▶ Kijken', () => openPlayer(v, 'watch')],
+    ['✓ Gezien', () => markWatched(v)],
+    ['✕ Weg', () => { S.watch = S.watch.filter(w => w.id !== v.id); S.rejected[v.id] = slim(v); save(); renderWatch(); }],
+  ], () => openPlayer(v, 'watch'))));
+}
+function markWatched(v) {
+  S.watch = S.watch.filter(w => w.id !== v.id);
+  S.seen[v.id] = slim(v);
+  save(); renderWatch();
+  toast('Gemarkeerd als gezien — komt niet meer terug');
+}
+
+/* ============================================================
+   Gezien & verborgen
+   ============================================================ */
+let histMode = 'seen';
+function renderHistory() {
+  const f = document.getElementById('histFilter').value.toLowerCase();
+  const list = document.getElementById('histList');
+  list.innerHTML = '';
+  if (histMode === 'channels') {
+    Object.entries(S.blockedChannels).forEach(([id, c]) => {
+      if (f && !c.name.toLowerCase().includes(f)) return;
+      const row = document.createElement('div'); row.className = 'list-row';
+      row.innerHTML = `<div class="grow"><b>${esc(c.name)}</b></div>`;
+      const b = document.createElement('button'); b.className = 'btn small'; b.textContent = 'Deblokkeren';
+      b.onclick = () => { delete S.blockedChannels[id]; save(); renderHistory(); };
+      row.appendChild(b); list.appendChild(row);
+    });
+    if (!list.children.length) list.innerHTML = '<p class="muted">Geen geblokkeerde kanalen.</p>';
+    return;
+  }
+  const src = S[histMode];
+  const items = Object.values(src).filter(v => !f || (v.title + ' ' + v.channel).toLowerCase().includes(f))
+    .sort((a, b) => b.t - a.t).slice(0, 300);
+  items.forEach(v => {
+    const row = document.createElement('div'); row.className = 'list-row';
+    row.innerHTML = `${v.thumb ? `<img src="${v.thumb}" alt="" loading="lazy">` : ''}
+      <div class="grow"><div style="font-weight:600">${esc(v.title || v.id)}</div><div class="muted" style="font-size:13px">${esc(v.channel || '')}</div></div>`;
+    const b = document.createElement('button'); b.className = 'btn small'; b.textContent = 'Terugzetten';
+    b.onclick = () => { delete src[v.id]; save(); renderHistory(); };
+    row.appendChild(b); list.appendChild(row);
+  });
+  const total = Object.keys(src).length;
+  if (!total) list.innerHTML = '<p class="muted">Nog niets.</p>';
+  else if (total > items.length && !f) list.insertAdjacentHTML('beforeend', `<p class="muted">… en nog ${total - items.length} meer (gebruik het filter).</p>`);
+}
+
+/* ============================================================
+   Speler
+   ============================================================ */
+let playQueue = [];
+function openPlayer(v, from) {
+  document.getElementById('playerModal').classList.remove('hidden');
+  document.getElementById('playerFrame').src = `https://www.youtube-nocookie.com/embed/${v.id}?autoplay=1&rel=0&modestbranding=1`;
+  document.getElementById('playerTitle').textContent = v.title;
+  document.getElementById('playerSub').textContent = `${v.channel} · ${fmtViews(v.views)} · ${ago(v.published)}`;
+  const acts = document.getElementById('playerActions');
+  acts.innerHTML = '';
+  const add = (label, fn, cls = 'btn') => { const b = document.createElement('button'); b.className = cls; b.textContent = label; b.onclick = fn; acts.appendChild(b); };
+  if (from === 'watch') {
+    add('✓ Gezien' + (playQueue.length ? ' → volgende' : ''), () => { markWatched(v); nextInQueue(); }, 'btn primary');
+  } else if (from === 'deck') {
+    add('✕ Niet interessant', () => { closePlayer(); decide('reject'); });
+    add('★ Bewaren', () => { closePlayer(); decide('keep'); });
+    add('✓ Gezien', () => { closePlayer(); decide('seen'); }, 'btn primary');
+  } else {
+    add('★ Bewaren', () => { S.watch.push(v); save(); closePlayer(); renderHome(); });
+    add('✓ Gezien', () => { S.seen[v.id] = slim(v); save(); closePlayer(); renderHome(); }, 'btn primary');
+  }
+  const yt = document.createElement('a'); yt.className = 'btn'; yt.textContent = 'Op YouTube ↗';
+  yt.href = 'https://www.youtube.com/watch?v=' + v.id; yt.target = '_blank'; yt.rel = 'noopener'; yt.style.textDecoration = 'none'; yt.style.color = 'inherit';
+  acts.appendChild(yt);
+  add('Sluiten', () => { playQueue = []; closePlayer(); });
+}
+function closePlayer() {
+  document.getElementById('playerModal').classList.add('hidden');
+  document.getElementById('playerFrame').src = 'about:blank';
+}
+function nextInQueue() {
+  const next = playQueue.shift();
+  if (next && S.watch.some(w => w.id === next.id)) openPlayer(next, 'watch'); else closePlayer();
+}
+
+/* ============================================================
+   Hulpjes
+   ============================================================ */
+function videoTile(v, actions, onOpen) {
+  const el = document.createElement('div'); el.className = 'vid';
+  el.innerHTML = `<div class="thumb"><img src="${v.thumb}" alt="" loading="lazy"><span class="dur">${fmtDur(v.seconds)}</span></div>
+    <div class="meta"><div style="min-width:0"><div class="t">${esc(v.title)}</div>
+    <div class="s">${esc(v.channel)}</div><div class="s">${fmtViews(v.views)} · ${ago(v.published)}
+    ${v.score != null ? ` · <span class="score">AI ${v.score}/10</span>` : ''}</div></div></div><div class="actions"></div>`;
+  el.querySelector('.thumb').onclick = onOpen;
+  const a = el.querySelector('.actions');
+  actions.forEach(([label, fn]) => { const b = document.createElement('button'); b.className = 'btn small'; b.textContent = label; b.onclick = fn; a.appendChild(b); });
+  return el;
+}
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function fmtDur(s) { if (!s) return ''; const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, '0'); return h ? `${h}:${String(m).padStart(2, '0')}:${x}` : `${m}:${x}`; }
+function fmtViews(n) { if (!n) return ''; return (n >= 1e6 ? (n / 1e6).toFixed(1).replace('.0', '') + ' mln.' : n >= 1e3 ? Math.round(n / 1e3) + 'K' : n) + ' weergaven'; }
+function ago(d) {
+  if (!d) return ''; const days = (Date.now() - new Date(d)) / 864e5;
+  if (days < 1) return 'vandaag'; if (days < 7) return Math.floor(days) + ' dagen geleden';
+  if (days < 31) return Math.floor(days / 7) + ' weken geleden'; if (days < 365) return Math.floor(days / 30) + ' maanden geleden';
+  return Math.floor(days / 365) + ' jaar geleden';
+}
+const dedupe = vs => [...new Map(vs.map(v => [v.id, v])).values()];
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 4000);
+}
+function renderCounts() {
+  document.getElementById('cDeck').textContent = S.deck.length || '';
+  document.getElementById('cWatch').textContent = S.watch.length || '';
+  document.getElementById('cSeen').textContent = Object.keys(S.seen).length;
+  document.getElementById('cRej').textContent = Object.keys(S.rejected).length;
+  document.getElementById('cChan').textContent = Object.keys(S.blockedChannels).length;
+  document.getElementById('setupBanner').classList.toggle('hidden', !!S.settings.ytKey);
+}
+
+/* ============================================================
+   Tabs, instellingen, events
+   ============================================================ */
+function openTab(name) {
+  ['home', 'swipe', 'watch', 'history', 'settings'].forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== name));
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  if (name === 'swipe') renderDeck();
+  if (name === 'watch') renderWatch();
+  if (name === 'history') renderHistory();
+  if (name === 'settings') fillSettings();
+  if (name === 'home') renderHome();
+}
+const SETTING_IDS = ['ytKey', 'aiKey', 'nQueries', 'minScore', 'lang', 'region', 'maxAge'];
+function fillSettings() {
+  SETTING_IDS.forEach(k => document.getElementById(k).value = S.settings[k]);
+  document.getElementById('noShorts').checked = S.settings.noShorts;
+  document.getElementById('quotaUsed').textContent = S.quota.day === new Date().toISOString().slice(0, 10) ? S.quota.used : 0;
+}
+document.getElementById('saveSettings').onclick = () => {
+  SETTING_IDS.forEach(k => S.settings[k] = document.getElementById(k).value.trim());
+  S.settings.noShorts = document.getElementById('noShorts').checked;
+  save(); toast('Opgeslagen'); openTab('home'); loadHome();
+};
+document.getElementById('settingsBtn').onclick = () => openTab('settings');
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => openTab(b.dataset.tab));
+document.getElementById('searchForm').onsubmit = e => { e.preventDefault(); runSearch(document.getElementById('q').value); };
+document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => decide(b.dataset.act));
+document.getElementById('undoBtn').onclick = undo;
+document.getElementById('previewBtn').onclick = () => S.deck[0] && openPlayer(S.deck[0], 'deck');
+document.getElementById('refreshHome').onclick = loadHome;
+document.getElementById('playAll').onclick = () => { if (!S.watch.length) return; playQueue = S.watch.slice(1); openPlayer(S.watch[0], 'watch'); };
+document.getElementById('playerModal').onclick = e => { if (e.target.id === 'playerModal') { playQueue = []; closePlayer(); } };
+document.getElementById('histFilter').oninput = renderHistory;
+document.querySelectorAll('[data-hist]').forEach(b => b.onclick = () => {
+  histMode = b.dataset.hist;
+  document.querySelectorAll('[data-hist]').forEach(x => x.classList.toggle('on', x === b));
+  renderHistory();
+});
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea, select')) return;
+  if (!document.getElementById('playerModal').classList.contains('hidden')) {
+    if (e.key === 'Escape') { playQueue = []; closePlayer(); }
+    return;
+  }
+  if (document.getElementById('tab-swipe').classList.contains('hidden')) return;
+  if (e.key === 'ArrowLeft') decide('reject');
+  else if (e.key === 'ArrowRight') decide('seen');
+  else if (e.key === 'ArrowUp') { e.preventDefault(); decide('keep'); }
+  else if (e.key === 'Backspace') undo();
+  else if (e.key === ' ') { e.preventDefault(); S.deck[0] && openPlayer(S.deck[0], 'deck'); }
+});
+
+// Google Takeout: watch-history.json → alles als "gezien" markeren
+document.getElementById('takeout').onchange = async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const items = JSON.parse(await file.text());
+    let n = 0;
+    for (const it of items) {
+      const id = /[?&]v=([\w-]{11})/.exec(it.titleUrl || '')?.[1];
+      if (!id || S.seen[id]) continue;
+      S.seen[id] = { id, title: (it.title || '').replace(/^(Watched|Bekeken)\s+/, ''), channel: it.subtitles?.[0]?.name || '',
+        thumb: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`, t: new Date(it.time).getTime() || Date.now() };
+      n++;
+    }
+    save(); toast(`${n} bekeken video's geïmporteerd — die krijg je niet meer te zien.`);
+  } catch { toast('Kon dit bestand niet lezen. Kies watch-history.json (JSON-formaat).'); }
+};
+document.getElementById('exportBtn').onclick = () => {
+  const { settings, ...rest } = S;
+  const blob = new Blob([JSON.stringify({ ...rest, settings: { ...settings, ytKey: '', aiKey: '' } })], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `tubewijs-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+};
+document.getElementById('importFile').onchange = async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const keys = { ytKey: S.settings.ytKey, aiKey: S.settings.aiKey };
+    S = deepMerge(structuredClone(DEFAULT_STATE), data);
+    if (!S.settings.ytKey) Object.assign(S.settings, keys);
+    save(); fillSettings(); toast('Back-up teruggezet');
+  } catch { toast('Ongeldig back-upbestand'); }
+};
+document.getElementById('resetBtn').onclick = () => {
+  if (!confirm('Alles wissen: gezien, verborgen, kijklijst en sleutels?')) return;
+  localStorage.removeItem(STORE_KEY); S = load(); save(); fillSettings(); toast('Alles gewist');
+};
+
+// Start
+renderChips();
+renderCounts();
+if (S.settings.ytKey) loadHome(); else openTab('settings');
+</script>
+</body>
+</html>
